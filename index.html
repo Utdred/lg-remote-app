@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TV Remote">
+<meta name="theme-color" content="#14161a">
+<title>Living Room Remote</title>
+<style>
+/* Layout: one phone-width column shaped like a handheld remote. Deliberately dark only. */
+:root {
+  --bg: #0e0f12;
+  --body: #1a1c21;
+  --key: #262930;
+  --key-hi: #31353e;
+  --fg: #e9ebef;
+  --muted: #8c929e;
+  --accent: #c8325a;      /* LG-style magenta-red, used for power and OK */
+  --ok: #3fb67a;
+  --warn: #e0a83a;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 var(--font); }
+body {
+  min-height: 100vh;
+  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  -webkit-user-select: none; user-select: none;
+}
+[hidden] { display: none !important; }
+.wrap { max-width: 380px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); min-width: 0; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.dot.wait { background: var(--warn); }
+.status span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+button {
+  font: inherit; color: var(--fg); background: var(--key); border: 0; border-radius: 14px;
+  min-height: 52px; padding: 0 12px; cursor: pointer; touch-action: manipulation;
+  transition: background .08s, transform .08s;
+}
+button:active { background: var(--key-hi); transform: scale(.96); }
+button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; }
+.small { min-height: 36px; font-size: 13px; padding: 0 12px; border-radius: 10px; }
+.power { background: var(--accent); width: 52px; padding: 0; border-radius: 50%; }
+.power:active { background: #a82848; }
+
+.panel { background: var(--body); border-radius: 22px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.row.four { grid-template-columns: repeat(4, 1fr); }
+.label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* D-pad */
+.dpad { position: relative; width: 230px; height: 230px; margin: 4px auto; border-radius: 50%; background: var(--key); }
+.dpad button { position: absolute; background: transparent; border-radius: 0; min-height: 0; padding: 0; }
+.dpad button:active { background: var(--key-hi); transform: none; }
+.dpad .up    { top: 0; left: 70px; width: 90px; height: 70px; border-radius: 50px 50px 0 0; }
+.dpad .down  { bottom: 0; left: 70px; width: 90px; height: 70px; border-radius: 0 0 50px 50px; }
+.dpad .left  { left: 0; top: 70px; width: 70px; height: 90px; border-radius: 50px 0 0 50px; }
+.dpad .right { right: 0; top: 70px; width: 70px; height: 90px; border-radius: 0 50px 50px 0; }
+.dpad .ok { left: 70px; top: 70px; width: 90px; height: 90px; border-radius: 50%; background: var(--accent); font-weight: 600; letter-spacing: .04em; }
+.dpad .ok:active { background: #a82848; }
+
+/* Rockers */
+.rockers { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: stretch; }
+.rocker { display: flex; flex-direction: column; background: var(--key); border-radius: 16px; overflow: hidden; }
+.rocker button { border-radius: 0; background: transparent; }
+.rocker .mid { text-align: center; font-size: 11px; letter-spacing: .08em; color: var(--muted); padding: 2px 0; }
+.mid-col { display: flex; flex-direction: column; gap: 10px; }
+.mid-col button { flex: 1; }
+.vol-num { font-variant-numeric: tabular-nums; }
+
+/* Apps / inputs */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button { min-height: 40px; border-radius: 20px; padding: 0 14px; font-size: 14px; }
+.chips button.cur { outline: 2px solid var(--accent); }
+
+/* Setup */
+.setup h1 { font-size: 22px; margin: 0; text-wrap: balance; }
+.setup p, .setup li { color: var(--muted); margin: 0; }
+.setup ol { padding-left: 20px; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.setup a { color: var(--fg); }
+input {
+  font: inherit; font-size: 17px; width: 100%; color: var(--fg); background: var(--key);
+  border: 1px solid transparent; border-radius: 12px; padding: 12px 14px;
+  -webkit-user-select: text; user-select: text;
+}
+input:focus { outline: none; border-color: var(--accent); }
+.primary { background: var(--accent); font-weight: 600; }
+.primary:active { background: #a82848; }
+.err { color: #ff8a8a; font-size: 14px; }
+details summary { color: var(--muted); font-size: 13px; cursor: pointer; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--key-hi); padding: 10px 16px; border-radius: 12px; font-size: 14px; max-width: 90vw;
+}
+@media (prefers-reduced-motion: reduce) { button { transition: none; } button:active { transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="status"><div class="dot" id="dot"></div><span id="statusText">Not connected</span></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="small" id="settingsBtn" aria-label="Settings">Setup</button>
+      <button class="power" id="powerBtn" aria-label="Turn TV off" data-uri="ssap://system/turnOff">
+        <svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Setup screen -->
+  <section class="panel setup" id="setup">
+    <h1>Connect to your LG TV</h1>
+    <ol>
+      <li>Make sure your iPhone and TV are on the same Wi‑Fi.</li>
+      <li>Find the TV's IP address: on the TV go to Settings → Network → Wi‑Fi (or Wired) → Advanced settings.</li>
+      <li>Turn on <b>Settings → General → Devices → External Devices → TV On With Mobile</b> (wording varies by model). Some models also need <b>LG Connect Apps</b> on.</li>
+    </ol>
+    <label class="label" for="ip">TV IP address</label>
+    <input id="ip" inputmode="decimal" placeholder="192.168.1.50" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <ol start="4">
+      <li>One-time step: open <a id="certLink" href="#" target="_blank" rel="noopener">the TV's secure address</a> in Safari. Tap <b>Show Details → visit this website</b> and confirm. A blank or error page afterwards is normal. Then come back here.</li>
+      <li>Tap Connect, then press <b>Yes / Accept</b> on the TV with the physical remote.</li>
+    </ol>
+    <button class="primary" id="connectBtn">Connect</button>
+    <div class="err" id="setupErr" hidden></div>
+    <details>
+      <summary>Troubleshooting</summary>
+      <p style="margin-top:8px">If it won't connect: repeat step 4 (Safari can forget the exception), check the IP, and make sure the TV is on. iOS may ask to allow access to devices on your local network; allow it. Turning the TV <i>on</i> isn't possible from a web page, only off.</p>
+    </details>
+  </section>
+
+  <!-- Remote -->
+  <div id="remote" hidden>
+    <div class="wrap">
+      <div class="panel">
+        <div class="row">
+          <button data-btn="BACK" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg> Back</button>
+          <button data-btn="HOME" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/></svg> Home</button>
+          <button data-btn="MENU" aria-label="Settings menu"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+        </div>
+
+        <div class="dpad">
+          <button class="up" data-btn="UP" aria-label="Up"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+          <button class="left" data-btn="LEFT" aria-label="Left"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+          <button class="ok" data-btn="ENTER" aria-label="OK">OK</button>
+          <button class="right" data-btn="RIGHT" aria-label="Right"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+          <button class="down" data-btn="DOWN" aria-label="Down"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+        </div>
+
+        <div class="rockers">
+          <div class="rocker">
+            <button data-uri="ssap://audio/volumeUp" data-repeat aria-label="Volume up"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <div class="mid">VOL <span class="vol-num" id="volNum"></span></div>
+            <button data-uri="ssap://audio/volumeDown" data-repeat aria-label="Volume down"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+          </div>
+          <div class="mid-col">
+            <button id="muteBtn" aria-label="Mute"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m23 9-6 6M17 9l6 6"/></svg></button>
+            <button id="playPauseBtn" aria-label="Play or pause"><svg viewBox="0 0 24 24"><path d="m6 4 9 8-9 8z"/><path d="M18 5v14"/></svg></button>
+          </div>
+          <div class="rocker">
+            <button data-uri="ssap://tv/channelUp" aria-label="Channel up"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+            <div class="mid">CH</div>
+            <button data-uri="ssap://tv/channelDown" aria-label="Channel down"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+          </div>
+        </div>
+
+        <div class="row four">
+          <button data-uri="ssap://media.controls/rewind" aria-label="Rewind"><svg viewBox="0 0 24 24"><path d="m11 19-9-7 9-7zM22 19l-9-7 9-7z"/></svg></button>
+          <button data-uri="ssap://media.controls/play" aria-label="Play"><svg viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg></button>
+          <button data-uri="ssap://media.controls/pause" aria-label="Pause"><svg viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/></svg></button>
+          <button data-uri="ssap://media.controls/fastForward" aria-label="Fast forward"><svg viewBox="0 0 24 24"><path d="m13 19 9-7-9-7zM2 19l9-7-9-7z"/></svg></button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="label">Apps</div>
+        <div class="chips" id="apps"><span class="label" style="text-transform:none">Loading…</span></div>
+      </div>
+
+      <div class="panel">
+        <div class="label">Inputs</div>
+        <div class="chips" id="inputs"><span class="label" style="text-transform:none">Loading…</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+  const PAIRING = {"forcePairing":false,"pairingType":"PROMPT","manifest":{"manifestVersion":1,"appVersion":"1.1","signed":{"created":"20140509","appId":"com.lge.test","vendorId":"com.lge","localizedAppNames":{"":"LG Remote App","ko-KR":"\ub9ac\ubaa8\ucee8 \uc571","zxx-XX":"\u041b\u0413 R\u044d\u043cot\u044d A\u041f\u041f"},"localizedVendorNames":{"":"LG Electronics"},"permissions":["TEST_SECURE","CONTROL_INPUT_TEXT","CONTROL_MOUSE_AND_KEYBOARD","READ_INSTALLED_APPS","READ_LGE_SDX","READ_NOTIFICATIONS","SEARCH","WRITE_SETTINGS","WRITE_NOTIFICATION_ALERT","CONTROL_POWER","READ_CURRENT_CHANNEL","READ_RUNNING_APPS","READ_UPDATE_INFO","UPDATE_FROM_REMOTE_APP","READ_LGE_TV_INPUT_EVENTS","READ_TV_CURRENT_TIME"],"serial":"2f930e2d2cfe083771f68e4fe7bb07"},"permissions":["LAUNCH","LAUNCH_WEBAPP","APP_TO_APP","CLOSE","TEST_OPEN","TEST_PROTECTED","CONTROL_AUDIO","CONTROL_DISPLAY","CONTROL_INPUT_JOYSTICK","CONTROL_INPUT_MEDIA_RECORDING","CONTROL_INPUT_MEDIA_PLAYBACK","CONTROL_INPUT_TV","CONTROL_POWER","READ_APP_STATUS","READ_CURRENT_CHANNEL","READ_INPUT_DEVICE_LIST","READ_NETWORK_STATE","READ_RUNNING_APPS","READ_TV_CHANNEL_LIST","WRITE_NOTIFICATION_TOAST","READ_POWER_STATE","READ_COUNTRY_INFO","READ_SETTINGS","CONTROL_TV_SCREEN","CONTROL_TV_STANBY","CONTROL_FAVORITE_GROUP","CONTROL_USER_INFO","CHECK_BLUETOOTH_DEVICE","CONTROL_BLUETOOTH","CONTROL_TIMER_INFO","STB_INTERNAL_CONNECTION","CONTROL_RECORDING","READ_RECORDING_STATE","WRITE_RECORDING_LIST","READ_RECORDING_LIST","READ_RECORDING_SCHEDULE","WRITE_RECORDING_SCHEDULE","READ_STORAGE_DEVICE_LIST","READ_TV_PROGRAM_INFO","CONTROL_BOX_CHANNEL","READ_TV_ACR_AUTH_TOKEN","READ_TV_CONTENT_STATE","READ_TV_CURRENT_TIME","ADD_LAUNCHER_CHANNEL","SET_CHANNEL_SKIP","RELEASE_CHANNEL_SKIP","CONTROL_CHANNEL_BLOCK","DELETE_SELECT_CHANNEL","CONTROL_CHANNEL_GROUP","SCAN_TV_CHANNELS","CONTROL_TV_POWER","CONTROL_WOL"],"signatures":[{"signatureVersion":1,"signature":"eyJhbGdvcml0aG0iOiJSU0EtU0hBMjU2Iiwia2V5SWQiOiJ0ZXN0LXNpZ25pbmctY2VydCIsInNpZ25hdHVyZVZlcnNpb24iOjF9.hrVRgjCwXVvE2OOSpDZ58hR+59aFNwYDyjQgKk3auukd7pcegmE2CzPCa0bJ0ZsRAcKkCTJrWo5iDzNhMBWRyaMOv5zWSrthlf7G128qvIlpMT0YNY+n/FaOHE73uLrS/g7swl3/qH/BGFG2Hu4RlL48eb3lLKqTt2xKHdCs6Cd4RMfJPYnzgvI4BNrFUKsjkcu+WD4OO2A27Pq1n50cMchmcaXadJhGrOqH5YmHdOCj5NSHzJYrsW0HPlpuAx/ECMeIZYDh6RMqaFM2DXzdKX9NmmyqzJ3o/0lkk/N97gfVRLW5hA29yeAwaCViZNCP8iC9aO0q9fQojoa7NQnAtw=="}]}};
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+  const $ = (id) => document.getElementById(id);
+  const ipInput = $('ip'), certLink = $('certLink');
+
+  let ws = null, pointer = null, msgId = 0, connected = false, muted = false, playing = true;
+  const pending = {};
+
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2500);
+  }
+  function setStatus(text, state) {
+    $('statusText').textContent = text;
+    $('dot').className = 'dot' + (state ? ' ' + state : '');
+  }
+  function showSetup(show, err) {
+    $('setup').hidden = !show; $('remote').hidden = show;
+    $('setupErr').hidden = !err; $('setupErr').textContent = err || '';
+  }
+  function updateCertLink() {
+    const ip = ipInput.value.trim();
+    certLink.href = ip ? 'https://' + ip + ':3001/' : '#';
+    certLink.textContent = ip ? 'https://' + ip + ':3001' : "the TV's secure address (enter IP first)";
+  }
+
+  function send(type, uri, payload) {
+    return new Promise((resolve, reject) => {
+      if (!ws || ws.readyState !== 1) return reject(new Error('Not connected'));
+      const id = type + '_' + (++msgId);
+      pending[id] = { resolve, reject };
+      const msg = { id, type };
+      if (uri) msg.uri = uri;
+      if (payload) msg.payload = payload;
+      ws.send(JSON.stringify(msg));
+      setTimeout(() => { if (pending[id]) { delete pending[id]; reject(new Error('Timed out')); } }, 8000);
+    });
+  }
+  const request = (uri, payload) => send('request', uri, payload);
+
+  function connect() {
+    const ip = ipInput.value.trim();
+    if (!/^[\w.\-:]+$/.test(ip)) { showSetup(true, 'Enter the TV IP address, like 192.168.1.50.'); return; }
+    store.set('lg.ip', ip);
+    if (ws) { ws.onclose = null; ws.close(); }
+    setStatus('Connecting to ' + ip + '…', 'wait');
+    let opened = false;
+    try { ws = new WebSocket('wss://' + ip + ':3001'); }
+    catch (e) { showSetup(true, 'Could not open a connection: ' + e.message); return; }
+
+    ws.onopen = () => {
+      opened = true;
+      setStatus('Pairing… check the TV', 'wait');
+      const payload = JSON.parse(JSON.stringify(PAIRING));
+      const key = store.get('lg.key.' + ip);
+      if (key) payload['client-key'] = key;
+      ws.send(JSON.stringify({ id: 'register_0', type: 'register', payload }));
+    };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.id === 'register_0') {
+        if (m.type === 'registered') {
+          store.set('lg.key.' + ip, m.payload['client-key']);
+          onReady(ip);
+        } else if (m.type === 'response' && m.payload && m.payload.pairingType === 'PROMPT') {
+          setStatus('Accept the prompt on the TV', 'wait');
+          showSetup(false); // keep remote visible while waiting
+        } else if (m.type === 'error') {
+          store.del('lg.key.' + ip);
+          showSetup(true, 'The TV refused pairing (' + (m.error || 'unknown') + '). Tap Connect and accept on the TV.');
+          setStatus('Not paired', '');
+        }
+        return;
+      }
+      if (m.id && m.id.startsWith('vol_sub') && m.payload) { applyVolume(m.payload); return; }
+      const p = pending[m.id];
+      if (!p) return;
+      delete pending[m.id];
+      if (m.type === 'error' || (m.payload && m.payload.returnValue === false)) p.reject(new Error(m.error || (m.payload && m.payload.errorText) || 'TV error'));
+      else p.resolve(m.payload || {});
+    };
+    ws.onerror = () => {};
+    ws.onclose = () => {
+      connected = false;
+      if (pointer) { try { pointer.close(); } catch {} pointer = null; }
+      if (!opened) {
+        setStatus('Not connected', '');
+        showSetup(true, "Couldn't reach the TV at " + ip + '. Check the IP and that the TV is on, then redo step 4 (open the secure address and accept the warning).');
+      } else {
+        setStatus('Disconnected. Tap to reconnect', '');
+      }
+    };
+  }
+
+  function onReady(ip) {
+    connected = true;
+    setStatus('Connected · ' + ip, 'on');
+    showSetup(false);
+    openPointer().catch(() => {});
+    // Volume: subscribe for live updates
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ id: 'vol_sub_' + (++msgId), type: 'subscribe', uri: 'ssap://audio/getVolume' }));
+    loadApps(); loadInputs();
+  }
+
+  function applyVolume(p) {
+    const vs = p.volumeStatus || p;
+    if (typeof vs.volume === 'number') $('volNum').textContent = vs.volume;
+    if (typeof vs.muteStatus === 'boolean') muted = vs.muteStatus;
+    else if (typeof vs.muted === 'boolean') muted = vs.muted;
+  }
+
+  async function openPointer() {
+    const r = await request('ssap://com.webos.service.networkinput/getPointerInputSocket');
+    let path = r.socketPath;
+    if (!path) throw new Error('No pointer socket');
+    // Page is HTTPS, so the pointer socket must be secure too.
+    if (path.startsWith('ws://')) path = path.replace('ws://', 'wss://').replace(':3000/', ':3001/');
+    return new Promise((resolve, reject) => {
+      const s = new WebSocket(path);
+      s.onopen = () => { pointer = s; resolve(s); };
+      s.onerror = () => reject(new Error('Pointer socket failed'));
+      s.onclose = () => { if (pointer === s) pointer = null; };
+    });
+  }
+
+  async function pressButton(name) {
+    try {
+      if (!pointer || pointer.readyState !== 1) await openPointer();
+      pointer.send('type:button\nname:' + name + '\n\n');
+    } catch (e) { toast("Button didn't send: " + e.message); }
+  }
+
+  async function run(uri, payload) {
+    try { return await request(uri, payload); }
+    catch (e) { toast(e.message === 'Not connected' ? 'Not connected to the TV' : 'TV said: ' + e.message); }
+  }
+
+  const FAVORITES = ['netflix', 'youtube.leanback.v4', 'amazon', 'com.disney.disneyplus-prod', 'hulu', 'hbo.max', 'spotify-beehive', 'com.apple.appletv', 'plex', 'com.webos.app.livetv'];
+  async function loadApps() {
+    const box = $('apps');
+    const r = await run('ssap://com.webos.applicationManager/listLaunchPoints');
+    if (!r || !r.launchPoints) { box.innerHTML = '<span class="label" style="text-transform:none">Unavailable</span>'; return; }
+    const pts = r.launchPoints.slice().sort((a, b) => {
+      const ia = FAVORITES.indexOf(a.id), ib = FAVORITES.indexOf(b.id);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.title.localeCompare(b.title);
+    });
+    box.innerHTML = '';
+    pts.forEach((p) => {
+      const b = document.createElement('button');
+      b.textContent = p.title;
+      b.onclick = () => run('ssap://system.launcher/launch', { id: p.id });
+      box.appendChild(b);
+    });
+  }
+  async function loadInputs() {
+    const box = $('inputs');
+    const r = await run('ssap://tv/getExternalInputList');
+    if (!r || !r.devices) { box.innerHTML = '<span class="label" style="text-transform:none">Unavailable</span>'; return; }
+    box.innerHTML = '';
+    r.devices.forEach((d) => {
+      const b = document.createElement('button');
+      b.textContent = d.label || d.id;
+      if (d.connected === false) b.style.opacity = .55;
+      b.onclick = () => run('ssap://tv/switchInput', { inputId: d.id });
+      box.appendChild(b);
+    });
+  }
+
+  // Wire up buttons
+  document.querySelectorAll('[data-btn]').forEach((el) => el.addEventListener('click', () => pressButton(el.dataset.btn)));
+  document.querySelectorAll('[data-uri]').forEach((el) => {
+    if (el.hasAttribute('data-repeat')) {
+      let timer = null, fired = false;
+      const stop = () => { clearInterval(timer); clearTimeout(timer); timer = null; };
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); fired = true; run(el.dataset.uri);
+        timer = setTimeout(() => { timer = setInterval(() => run(el.dataset.uri), 150); }, 400);
+      });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => el.addEventListener(t, stop));
+      el.addEventListener('click', () => { if (!fired) run(el.dataset.uri); fired = false; });
+    } else {
+      el.addEventListener('click', () => run(el.dataset.uri));
+    }
+  });
+  $('muteBtn').addEventListener('click', () => { muted = !muted; run('ssap://audio/setMute', { mute: muted }); });
+  $('playPauseBtn').addEventListener('click', () => { playing = !playing; run(playing ? 'ssap://media.controls/play' : 'ssap://media.controls/pause'); });
+  $('connectBtn').addEventListener('click', connect);
+  $('settingsBtn').addEventListener('click', () => showSetup($('setup').hidden));
+  $('statusText').addEventListener('click', () => { if (!connected) connect(); });
+  ipInput.addEventListener('input', updateCertLink);
+  ipInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') connect(); });
+
+  // Reconnect when the app comes back to the foreground
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !connected && store.get('lg.ip')) connect();
+  });
+
+  // Start
+  const savedIp = store.get('lg.ip');
+  if (savedIp) { ipInput.value = savedIp; updateCertLink(); if (store.get('lg.key.' + savedIp)) connect(); else showSetup(true); }
+  else { updateCertLink(); showSetup(true); }
+})();
+</script>
+</body>
+</html>
